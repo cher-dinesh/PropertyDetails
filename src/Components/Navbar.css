@@ -1,0 +1,68 @@
+/* Navbar.css */
+
+.nav-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  background-color: #155efa;
+  color: white;
+}
+
+.profile-container {
+  display: flex;
+  align-items: center;
+}
+
+.profile-pic {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  margin-right: 10px;
+}
+
+.nav-list {
+  display: flex;
+}
+
+.nav-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+}
+
+.nav-items li {
+  margin-right: 15px;
+}
+
+.nav-items a {
+  text-decoration: none;
+  color: white;
+}
+
+.symbol {
+  font-size: 20px;
+  cursor: pointer;
+}
+
+/* Mobile view styles */
+
+.mobile-nav {
+  flex-direction: column;
+}
+
+.nav-items {
+  flex-direction: column;
+  position: absolute;
+  top: 60px;
+  left: 0;
+  background-color: #155efa;
+  width: 100%;
+  padding: 10px;
+  display: none;
+}
+
+.show {
+  display: flex;
+}
