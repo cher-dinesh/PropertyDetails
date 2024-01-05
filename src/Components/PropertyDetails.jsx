@@ -1,109 +1,115 @@
-import React, { useState } from 'react';
-import './EnquiryPopup.css';
+import React, { useEffect, useState } from 'react';
+import Navbar from './Navbar';
+import axios from 'axios';
+import Image from '../Assets/PD.jpg';
+import './PropertyDetails.css';
+import EnquiryPopup from './EnquiryPopup';
 
-const EnquiryPopup = ({ onClose, propertyId }) => {
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [submitted, setSubmitted] = useState(false);
-  const [nameError, setNameError] = useState('');
-  const [phoneError, setPhoneError] = useState('');
+const PropertyDetails = () => {
+  const [propertyData, setPropertyData] = useState(null);
+  const [showPopup, setShowPopup] = useState(false);
+  const apiUrl = 'http://13.234.238.86/api/getpropertydetails?ids=[3]';
+  const locationApiUrl = 'http://13.234.238.86/api/getlocationsbyids';
 
-  const handleFieldError = (field, value, setError) => {
-    if (!value) {
-      setError(`* ${field} is required`);
-    } else {
-      setError('');
-    }
-  };
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const response = await axios.post(apiUrl);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+        if (!response.data || !Array.isArray(response.data) || response.data.length === 0) {
+          throw new Error('No valid data received from the API');
+        }
 
-    handleFieldError('Name', name, setNameError);
-    handleFieldError('Phone Number', phone, setPhoneError);
+        const rawData = response.data[0];
 
-    if (!name || !phone) {
-      return;
-    }
+        if (!rawData[0] || !rawData[1]) {
+          throw new Error('Incomplete data received from the API');
+        }
 
-    const formData = new FormData();
-    formData.append('phone', phone);
-    formData.append('name', name);
-    formData.append('purpose', 'investment');
-    formData.append('propertyID', propertyId);
+        const transformedData = {
+          id: rawData[0].id.value,
+          name: rawData[0].name,
+          description: rawData[0].description,
+          price: (rawData[0].price / 100000).toFixed(2),
+          type: rawData[0].type,
+          location: rawData[0].location.value,
+          imgext: rawData[0].imgext || 'N/A',
+        };
+        const locationResponse = await axios.post(`${locationApiUrl}?ids=[${transformedData.location}]`);
 
-    const apiUrl = `http://13.234.238.86/api/addinterest?phone=${encodeURIComponent(phone)}&name=${encodeURIComponent(name)}&purpose=1&prop_id=${encodeURIComponent(propertyId)}`;
+        if (!locationResponse.data || locationResponse.data.length === 0) {
+          throw new Error('No valid location data received from the API');
+        }
 
-    try {
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-      });
+        const locationData = locationResponse.data[0];
+        const locationName = locationData.name || 'N/A';
 
-      if (!response.ok) {
-        throw new Error('Network response was not ok');
+        const additionalData = {
+          prop_id: rawData[1].prop_id,
+          details: rawData[1].details,
+          locationName: locationName,
+        };
+
+        setPropertyData({ ...transformedData, ...additionalData });
+      } catch (error) {
+        console.error('Error fetching data from API:', error.message);
       }
+    };
+    fetchData();
+  }, [locationApiUrl]);
 
-      const responseData = await response.json();
-      console.log('Enquiry submitted successfully:', responseData);
-      setSubmitted(true);
-    } catch (error) {
-      console.error('Error submitting enquiry:', error.message);
-    }
+  const generateImageUrl = () => {
+    const { id, imgext } = propertyData;
+    const len = imgext.length;
+    return len > 1 ? `http://13.234.238.86/media/prop/${id}_2.jpeg` : `http://13.234.238.86/media/prop/${id}.jpeg`;
   };
 
-  const resetForm = () => {
-    setName('');
-    setPhone('');
-    setSubmitted(false);
-    onClose();
+  const handleEnquireClick = () => {
+    setShowPopup(true);
+  };
+
+  const closePopup = () => {
+    setShowPopup(false);
   };
 
   return (
-    <div className={`enquiry-popup ${submitted && 'thank-you'}`}>
-      <div className="overlay">
-        <div className="enquiry-popup">
-          {submitted ? (
-            <>
-              <h2 className='heading'>Thank You!</h2>
-              <p>Your enquiry has been submitted successfully.</p>
-              <button className='submit-btn' onClick={resetForm}>OK</button>
-            </>
-          ) : (
-            <>
-              <div className="close-btn" onClick={onClose}>X</div>
-              <h2 className='heading'>Enquiry Form</h2>
-              <form onSubmit={handleSubmit}>
-                <div>
-                  <label>Name:</label>
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className={nameError ? 'error' : ''}
-                  />
-                  {nameError && <p className="error-message">{nameError}</p>}
+    <div>
+      {propertyData ? (
+        <div className="property-listing">
+          <Navbar />
+          <div className="container">
+            <div className="sub-container">
+              <h1 className='heading'>{propertyData.name}</h1>
+              <div className="details-container">
+                <div className="image-slider">
+                  <img src={generateImageUrl()} className="image" alt={Image} />
                 </div>
-                <div>
-                  <label>Phone Number:</label>
-                  <input
-                    type="text"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className={phoneError ? 'error' : ''}
-                  />
-                  {phoneError && <p className="error-message">{phoneError}</p>}
+                <div className="details">
+                  <div className="description">
+                    <p>{propertyData.type} BHK</p>
+                    <p>{propertyData.locationName}</p>
+                    <p>{propertyData.price} lacs</p>
+                  </div>
+                  <div className="additional-details">
+                    <p>{propertyData.description}</p>
+                    <p>{propertyData.details}</p>
+                  </div>
                 </div>
-                <p>We will contact you with more information about the property through this phone number</p>
-                <div className='btn-container'>
-                  <button type="submit" className='submit-btn'>Submit</button>
-                </div>
-              </form>
-            </>
-          )}
+              </div>
+              <div className="btn-container">
+                <button className="enquire-btn" onClick={handleEnquireClick} type='submit'>Enquire Now</button>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
+      ) : (
+        <p>Loading...</p>
+      )}
+      {showPopup && (
+        <EnquiryPopup onClose={closePopup} propertyId={propertyData.prop_id} />
+      )}
     </div>
   );
 };
 
-export default EnquiryPopup;
+export default PropertyDetails;
