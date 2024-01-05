@@ -1,47 +1,50 @@
-// EnquiryPopup.js
 import React, { useState } from 'react';
 import './EnquiryPopup.css';
-import axios from 'axios';
 
-const EnquiryPopup = ({ onClose, locationId }) => {
+const EnquiryPopup = ({ onClose, propertyId }) => {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [nameError, setNameError] = useState('');
   const [phoneError, setPhoneError] = useState('');
 
+  const handleFieldError = (field, value, setError) => {
+    if (!value) {
+      setError(`* ${field} is required`);
+    } else {
+      setError('');
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!name) {
-        setNameError('* Name is required');
-      } else {
-        setNameError('');
-      }
-  
-      if (!phone) {
-        setPhoneError('* Phone Number is required');
-      } else {
-        setPhoneError('');
-      }
-  
-      if (!name || !phone) {
-        return;
-      }
+    handleFieldError('Name', name, setNameError);
+    handleFieldError('Phone Number', phone, setPhoneError);
 
-    const formData = new URLSearchParams({
-      name: name,
-      phone: phone,
-      purpose: 'investment',
-      locationID: locationId,
-    });
+    if (!name || !phone) {
+      return;
+    }
 
-    const apiUrl = `http://13.234.238.86/api/addbuyerreq?phone=${encodeURIComponent(phone)}&name=${encodeURIComponent(name)}&req=request`;
+    const formData = new FormData();
+    formData.append('phone', phone);
+    formData.append('name', name);
+    formData.append('purpose', 'investment');
+    formData.append('propertyID', propertyId);
+
+    const apiUrl = `http://13.234.238.86/api/addinterest?phone=${encodeURIComponent(phone)}&name=${encodeURIComponent(name)}&purpose=1&prop_id=${encodeURIComponent(propertyId)}`;
 
     try {
-      const response = await axios.post(apiUrl);
-      console.log('Enquiry submitted successfully:', response.data);
-      console.log(formData);
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+      });
+
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+
+      const responseData = await response.json();
+      console.log('Enquiry submitted successfully:', responseData);
       setSubmitted(true);
     } catch (error) {
       console.error('Error submitting enquiry:', error.message);
@@ -56,17 +59,16 @@ const EnquiryPopup = ({ onClose, locationId }) => {
   };
 
   return (
-    <div className={`enquiry-popup ${submitted ? 'thank-you' : ''}`}>
-     <div className="overlay">
-      <div className="enquiry-popup">
-        
-        {submitted ? (
-          <>
-            <h2 className='heading'>Thank You!</h2>
-            <p>Your enquiry has been submitted successfully.</p>
-            <button className='submit-btn' onClick={resetForm}>OK</button>
-          </>
-        ) : (
+    <div className={`enquiry-popup ${submitted && 'thank-you'}`}>
+      <div className="overlay">
+        <div className="enquiry-popup">
+          {submitted ? (
+            <>
+              <h2 className='heading'>Thank You!</h2>
+              <p>Your enquiry has been submitted successfully.</p>
+              <button className='submit-btn' onClick={resetForm}>OK</button>
+            </>
+          ) : (
             <>
               <div className="close-btn" onClick={onClose}>X</div>
               <h2 className='heading'>Enquiry Form</h2>
@@ -97,9 +99,9 @@ const EnquiryPopup = ({ onClose, locationId }) => {
                 </div>
               </form>
             </>
-        )}
+          )}
+        </div>
       </div>
-     </div>
     </div>
   );
 };
