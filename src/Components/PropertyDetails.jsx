@@ -1,19 +1,24 @@
-import React, { useEffect, useState } from 'react';
-import Navbar from './Navbar';
+import React, { useState, useRef, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import axios from 'axios';
-import Image from '../Assets/PD.jpg';
-import './PropertyDetails.css';
+import Navbar from './Navbar';
+import Image from '../assets/property-images/property.jpg';
 import EnquiryPopup from './EnquiryPopup';
+import '../Styles/PropertyDetails.css';
 
-const PropertyDetails = () => {
+const PropertyDetails = (props) => {
+  const location = useLocation();
   const [propertyData, setPropertyData] = useState(null);
   const [showPopup, setShowPopup] = useState(false);
-  const apiUrl = 'http://13.234.238.86/api/getpropertydetails?ids=[3]';
-  const locationApiUrl = 'http://13.234.238.86/api/getlocationsbyids';
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const sliderRef = useRef(null);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
+  const fetchData = async () => {
+    try {
+      if (location.state && location.state.propertyId) {
+        const propertyId = location.state?.propertyId?.value;
+        const apiUrl = `http://13.234.238.86/api/getpropertydetails?ids=[${propertyId}]`;
+
         const response = await axios.post(apiUrl);
 
         if (!response.data || !Array.isArray(response.data) || response.data.length === 0) {
@@ -30,13 +35,13 @@ const PropertyDetails = () => {
           id: rawData[0].id.value,
           name: rawData[0].name,
           description: rawData[0].description,
-          price: (rawData[0].price / 100000).toFixed(2),
+          price: rawData[0].price,
           type: rawData[0].type,
           location: rawData[0].location.value,
           imgext: rawData[0].imgext || 'N/A',
         };
-        const locationResponse = await axios.post(`${locationApiUrl}?ids=[${transformedData.location}]`);
-
+        const locationResponse = await axios.post(`http://13.234.238.86/api/getlocationsbyids?ids=[${transformedData.location}]`);
+        const imageUrl =`http://13.234.238.86/media/prop/${propertyId}_1.jpeg`;
         if (!locationResponse.data || locationResponse.data.length === 0) {
           throw new Error('No valid location data received from the API');
         }
@@ -51,17 +56,44 @@ const PropertyDetails = () => {
         };
 
         setPropertyData({ ...transformedData, ...additionalData });
-      } catch (error) {
-        console.error('Error fetching data from API:', error.message);
+      } else {
+        console.error("Invalid propertyId in state");
       }
-    };
-    fetchData();
-  }, [locationApiUrl]);
+    } catch (error) {
+      console.error('Error fetching data from API:', error.message);
+    }
+  };
 
-  const generateImageUrl = () => {
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const generateImageUrls = () => {
     const { id, imgext } = propertyData;
-    const len = imgext.length;
-    return len > 1 ? `http://13.234.238.86/media/prop/${id}_2.jpeg` : `http://13.234.238.86/media/prop/${id}.jpeg`;
+
+    if (imgext) {
+      const imageVector = imgext.split(',').map((_, index) => index + 1);
+
+      if (imageVector.length > 1) {
+        // If there are multiple images, generate URLs for the slider
+        return imageVector.map((index) => `http://13.234.238.86/media/prop/${id}_${index}.jpeg`);
+      } else {
+        // If there's only one image, use the single image URL
+        return [`http://13.234.238.86/media/prop/${id}.jpeg`];
+      }
+    }
+
+    return [Image];
+  };
+
+  const handlePrevImage = () => {
+    setCurrentImageIndex((prevIndex) => (prevIndex - 1 + generateImageUrls().length) % generateImageUrls().length);
+    sliderRef.current.scrollBy(-sliderRef.current.offsetWidth, 0);
+  };
+
+  const handleNextImage = () => {
+    setCurrentImageIndex((prevIndex) => (prevIndex + 1) % generateImageUrls().length);
+    sliderRef.current.scrollBy(sliderRef.current.offsetWidth, 0);
   };
 
   const handleEnquireClick = () => {
@@ -74,16 +106,35 @@ const PropertyDetails = () => {
 
   return (
     <div>
+      <Navbar/>
       {propertyData ? (
         <div className="property-listing">
-          <Navbar />
           <div className="container">
             <div className="sub-container">
               <h1 className='heading'>{propertyData.name}</h1>
               <div className="details-container">
-                <div className="image-slider">
-                  <img src={generateImageUrl()} className="image" alt={Image} />
-                </div>
+                {generateImageUrls().length > 1 ? (
+                  <div className="image-slider-container">
+                    <button className="prev" onClick={handlePrevImage}>&#10094;</button>
+                    <div className="image-slider" ref={sliderRef}>
+                      {generateImageUrls().map((imageUrl, index) => (
+                        <img
+                          key={index}
+                          src={imageUrl}
+                          className={`image ${index === currentImageIndex ? 'active' : ''}`}
+                          alt={`Image Not Found`}
+                        />
+                      ))}
+                    </div>
+                    <button className="next" onClick={handleNextImage}>&#10095;</button>
+                  </div>
+                ) : (
+                  <img
+                    src={generateImageUrls()[0]}
+                    className="single-image"
+                    alt={`Image Not Found`}
+                  />
+                )}
                 <div className="details">
                   <div className="description">
                     <p>{propertyData.type} BHK</p>
@@ -106,7 +157,7 @@ const PropertyDetails = () => {
         <p>Loading...</p>
       )}
       {showPopup && (
-        <EnquiryPopup onClose={closePopup} propertyId={propertyData.prop_id} />
+        <EnquiryPopup onClose={closePopup} propertyId={propertyData.id} />
       )}
     </div>
   );
